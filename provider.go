@@ -1,0 +1,240 @@
+// Package unifi implements a DNS record management client compatible
+// with the libdns interfaces for UniFi
+package unifi
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sync"
+
+	"github.com/libdns/libdns"
+	"github.com/libdns/unifi/internal/unifi"
+)
+
+// Provider facilitates DNS record management for Unifi Network.
+// It implements the libdns record management interfaces.
+//
+// Credentials can be set directly on the struct fields or via environment variables:
+type Provider struct {
+	// APIKey is the Unifi API authentication key.
+	APIKey string `json:"api_key,omitempty"`
+
+	// SiteId is the UUID of the Unifi site containing the DNS policies.
+	SiteId string `json:"site_id,omitempty"`
+
+	// BaseUrl is the base URL of the Unifi controller API.
+	// Example: https://192.168.1.1/proxy/network/integration/v1
+	BaseUrl string `json:"base_url,omitempty"`
+
+	client *unifi.Client
+	mu     sync.Mutex
+}
+
+// GetRecords lists all the records in the zone.
+// The zone parameter is not used for Unifi (all records for the site are returned).
+func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+	client, err := p.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	policies, err := client.ListPolicies(ctx, p.SiteId, zone)
+	if err != nil {
+		return nil, err
+	}
+
+	records := make([]libdns.Record, len(policies))
+	for i, policy := range policies {
+		record, err := unifi.PolicyToLibdns(policy, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
+		}
+		records[i] = record
+	}
+
+	return records, nil
+}
+
+// AppendRecords adds records to the zone. It returns the records that were added.
+func (p *Provider) AppendRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	client, err := p.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]libdns.Record, 0, len(records))
+
+	for _, record := range records {
+		policy, err := unifi.LibdnsToPolicy(record, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
+		}
+
+		created, err := client.CreatePolicy(ctx, p.SiteId, policy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DNS policy: %w", err)
+		}
+
+		createdRecord, err := unifi.PolicyToLibdns(created, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert created policy to libdns record: %w", err)
+		}
+
+		result = append(result, createdRecord)
+	}
+
+	return result, nil
+}
+
+// SetRecords sets the records in the zone, either by updating existing records or creating new ones.
+// It returns the updated records.
+func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	client, err := p.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get existing records to match them with incoming records
+	existing, err := client.ListPolicies(ctx, p.SiteId, zone)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list existing policies: %w", err)
+	}
+
+	result := make([]libdns.Record, 0, len(records))
+
+	for _, record := range records {
+		policy, err := unifi.LibdnsToPolicy(record, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
+		}
+
+		// Find existing record by domain name
+		var existingPolicy *unifi.DNSPolicy
+		for i := range existing {
+			if existing[i].Domain == policy.Domain {
+				existingPolicy = &existing[i]
+				break
+			}
+		}
+
+		var result_policy unifi.DNSPolicy
+		var setErr error
+
+		if existingPolicy != nil {
+			// Update existing policy
+			result_policy, setErr = client.UpdatePolicy(ctx, p.SiteId, existingPolicy.ID, policy)
+			if setErr != nil {
+				return nil, fmt.Errorf("failed to update DNS policy: %w", setErr)
+			}
+		} else {
+			// Create new policy
+			result_policy, setErr = client.CreatePolicy(ctx, p.SiteId, policy)
+			if setErr != nil {
+				return nil, fmt.Errorf("failed to create DNS policy: %w", setErr)
+			}
+		}
+
+		createdRecord, err := unifi.PolicyToLibdns(result_policy, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
+		}
+
+		result = append(result, createdRecord)
+	}
+
+	return result, nil
+}
+
+// DeleteRecords deletes the specified records from the zone and returns the deleted records.
+func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []libdns.Record) ([]libdns.Record, error) {
+	client, err := p.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get existing records to find IDs for deletion
+	existing, err := client.ListPolicies(ctx, p.SiteId, zone)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list existing policies: %w", err)
+	}
+
+	result := make([]libdns.Record, 0, len(records))
+
+	for _, record := range records {
+		policy, err := unifi.LibdnsToPolicy(record, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
+		}
+
+		// Find existing record by domain name
+		var existingPolicy *unifi.DNSPolicy
+		for i := range existing {
+			if existing[i].Domain == policy.Domain {
+				existingPolicy = &existing[i]
+				break
+			}
+		}
+
+		if existingPolicy == nil {
+			continue
+		}
+
+		if err := client.DeletePolicy(ctx, p.SiteId, existingPolicy.ID); err != nil {
+			return nil, fmt.Errorf("failed to delete DNS policy: %w", err)
+		}
+
+		deleteResult, err := unifi.PolicyToLibdns(*existingPolicy, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
+		}
+
+		result = append(result, deleteResult)
+	}
+
+	return result, nil
+}
+
+// getClient initializes and returns the API client.
+func (p *Provider) getClient() (*unifi.Client, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.client == nil {
+		apiKey := p.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("UNIFI_API_KEY")
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("API key is required (set APIKey field or UNIFI_API_KEY env var)")
+		}
+
+		siteID := p.SiteId
+		if siteID == "" {
+			siteID = os.Getenv("UNIFI_SITE_ID")
+		}
+		if siteID == "" {
+			return nil, fmt.Errorf("site ID is required (set SiteId field or UNIFI_SITE_ID env var)")
+		}
+
+		baseURL := p.BaseUrl
+		if baseURL == "" {
+			baseURL = os.Getenv("UNIFI_BASE_URL")
+		}
+		if baseURL == "" {
+			return nil, fmt.Errorf("base URL is required (set BaseUrl field or UNIFI_BASE_URL env var)")
+		}
+
+		p.client = unifi.NewClient(apiKey, baseURL)
+	}
+
+	return p.client, nil
+}
+
+// Interface guards
+var (
+	_ libdns.RecordGetter   = (*Provider)(nil)
+	_ libdns.RecordAppender = (*Provider)(nil)
+	_ libdns.RecordSetter   = (*Provider)(nil)
+	_ libdns.RecordDeleter  = (*Provider)(nil)
+)
