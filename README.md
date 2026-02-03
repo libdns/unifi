@@ -10,9 +10,9 @@ This provider supports the following DNS record types:
 - **A** - IPv4 address records
 - **AAAA** - IPv6 address records
 - **CNAME** - Canonical name (alias) records
-- **MX** - Mail exchange records
-- **TXT** - Text records
-- **SRV** - Service records
+- **MX** - Mail exchange records (Without TTL)
+- **TXT** - Text records (Without TTL)
+- **SRV** - Service records (Without TTL)
 
 ## Configuration
 
@@ -39,7 +39,7 @@ import (
 
 func main() {
 	provider := unifi.Provider{
-		APIKey:  "your-api-key",
+		ApiKey:  "your-api-key",
 		SiteId:  "your-site-uuid",
 		BaseUrl: "https://192.168.1.1/proxy/network/integration/v1",
 	}
@@ -66,23 +66,23 @@ func main() {
 
 ## Getting Your Credentials
 
-### UniFi API Key
+### API Key
 
 1. Log into your UniFi Network Console 
 2. Navigate to **Integrations**
-3. Create a new API token
-4. Copy the token value as your `UNIFI_API_KEY`
+3. Create a new **API Key**
+4. Set the key as your `UNIFI_API_KEY` environment variable or use it as  `ApiKey` parameter
 
 ### Site ID
 
 Execute the following request to retrive the ID of your sites:
 ```curl
-curl -k -X GET 'https://192.168.1.1/proxy/network/integration/v1/sites' -H 'X-API-KEY: YOUR_API_KEY' -H 'Accept: application/json'
+curl -k -X GET 'https://YOU_UNIFI_NETWORK_CONTROLLER/proxy/network/integration/v1/sites' -H 'X-API-KEY: YOUR_API_KEY' -H 'Accept: application/json'
 ```
 
-### Host URL
+### Base URL
 
-The host URL is the base path of your UniFi Network API endpoint:
+The base URL is the base path of your UniFi Network API endpoint:
 
-- **Dream Machine**: `https://192.168.1.1/proxy/network/integration/v1` (replace IP with your device IP)
-- **CloudKey/Controller**: `https://your-controller-ip:8443/proxy/network/integration/v1`
+- **Default**: `https://YOU_UNIFI_NETWORK_CONTROLLER/proxy/network/integration/v1` (replace IP with your device IP)
+- **CloudKey/Controller**: `https://YOU_UNIFI_NETWORK_CONTROLLER:8443/proxy/network/integration/v1`
