@@ -17,8 +17,8 @@ import (
 //
 // Credentials can be set directly on the struct fields or via environment variables:
 type Provider struct {
-	// APIKey is the Unifi API authentication key.
-	APIKey string `json:"api_key,omitempty"`
+	// ApiKey is the Unifi API authentication key.
+	ApiKey string `json:"api_key,omitempty"`
 
 	// SiteId is the UUID of the Unifi site containing the DNS policies.
 	SiteId string `json:"site_id,omitempty"`
@@ -201,7 +201,7 @@ func (p *Provider) getClient() (*unifi.Client, error) {
 	defer p.mu.Unlock()
 
 	if p.client == nil {
-		apiKey := p.APIKey
+		apiKey := p.ApiKey
 		if apiKey == "" {
 			apiKey = os.Getenv("UNIFI_API_KEY")
 		}

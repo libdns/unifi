@@ -15,8 +15,8 @@ import (
 
 var (
 	apiKey  = flag.String("api-key", os.Getenv("UNIFI_API_KEY"), "UniFi API key (or set UNIFI_API_KEY env var)")
-	siteID  = flag.String("site-id", os.Getenv("UNIFI_SITE_ID"), "UniFi site UUID (or set UNIFI_SITE_ID env var)")
-	baseURL = flag.String("base-url", os.Getenv("UNIFI_BASE_URL"), "UniFi API base URL (or set UNIFI_BASE_URL env var)")
+	siteId  = flag.String("site-id", os.Getenv("UNIFI_SITE_ID"), "UniFi site UUID (or set UNIFI_SITE_ID env var)")
+	baseUrl = flag.String("base-url", os.Getenv("UNIFI_BASE_URL"), "UniFi API base URL (or set UNIFI_BASE_URL env var)")
 	zone    = flag.String("zone", os.Getenv("UNIFI_TEST_ZONE"), "DNS zone to test with (or set UNIFI_TEST_ZONE env var)")
 )
 
@@ -24,7 +24,7 @@ var (
 func setup(t *testing.T) (*unifi.Provider, context.Context) {
 	t.Helper()
 
-	if *apiKey == "" || *siteID == "" || *baseURL == "" || *zone == "" {
+	if *apiKey == "" || *siteId == "" || *baseUrl == "" || *zone == "" {
 		t.Skip("skipping integration test; -api-key, -site-id, -base-url, and -zone must be set")
 	}
 
@@ -36,9 +36,9 @@ func setup(t *testing.T) (*unifi.Provider, context.Context) {
 	}
 
 	provider := &unifi.Provider{
-		APIKey:  *apiKey,
-		SiteId:  *siteID,
-		BaseUrl: *baseURL,
+		ApiKey:  *apiKey,
+		SiteId:  *siteId,
+		BaseUrl: *baseUrl,
 	}
 
 	// Clean up any existing records in the zone before test
@@ -667,7 +667,7 @@ func TestMixedRecordTypes(t *testing.T) {
 // ExampleProvider demonstrates basic usage of the unifi provider
 func ExampleProvider() {
 	provider := unifi.Provider{
-		APIKey:  "your-api-key",
+		ApiKey:  "your-api-key",
 		SiteId:  "your-site-uuid",
 		BaseUrl: "https://192.168.1.1/proxy/network/integration/v1",
 	}
@@ -699,14 +699,14 @@ func ExampleProvider() {
 
 // BenchmarkGetRecords benchmarks the GetRecords method
 func BenchmarkGetRecords(b *testing.B) {
-	if *apiKey == "" || *siteID == "" || *baseURL == "" || *zone == "" {
+	if *apiKey == "" || *siteId == "" || *baseUrl == "" || *zone == "" {
 		b.Skip("skipping benchmark; -api-key, -site-id, -base-url, and -zone must be set")
 	}
 
 	provider := unifi.Provider{
-		APIKey:  *apiKey,
-		SiteId:  *siteID,
-		BaseUrl: *baseURL,
+		ApiKey:  *apiKey,
+		SiteId:  *siteId,
+		BaseUrl: *baseUrl,
 	}
 
 	ctx := context.Background()
