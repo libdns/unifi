@@ -48,7 +48,7 @@ func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 				Type:        RecordTypeA,
 				Domain:      domain,
 				IPv4Address: r.IP.String(),
-				TTLSeconds:  ttl,
+				TTLSeconds:  &ttl,
 				Enabled:     true,
 			}, nil
 		} else {
@@ -56,7 +56,7 @@ func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 				Type:        RecordTypeAAAA,
 				Domain:      domain,
 				IPv6Address: r.IP.String(),
-				TTLSeconds:  ttl,
+				TTLSeconds:  &ttl,
 				Enabled:     true,
 			}, nil
 		}
@@ -66,7 +66,7 @@ func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 			Type:         RecordTypeCNAME,
 			Domain:       domain,
 			TargetDomain: r.Target,
-			TTLSeconds:   ttl,
+			TTLSeconds:   &ttl,
 			Enabled:      true,
 		}, nil
 
@@ -110,7 +110,11 @@ func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 // The zone parameter is required to extract the relative record name from the full domain.
 // For example, with domain "www.example.com" and zone "example.com", the name becomes "www".
 func PolicyToLibdns(policy DNSPolicy, zone string) (libdns.Record, error) {
-	ttl := time.Duration(policy.TTLSeconds) * time.Second
+	ttlSeconds := int32(0)
+	if policy.TTLSeconds != nil {
+		ttlSeconds = *policy.TTLSeconds
+	}
+	ttl := time.Duration(ttlSeconds) * time.Second
 
 	// Extract relative name by removing zone suffix from domain
 	name := policy.Domain
@@ -213,7 +217,7 @@ type DNSPolicy struct {
 	ID         string `json:"id,omitempty"`
 	Enabled    bool   `json:"enabled"`
 	Domain     string `json:"domain"`
-	TTLSeconds int32  `json:"ttlSeconds"` // This must not be "omitempty" as 0 maps to "auto" for Unifi.
+	TTLSeconds *int32 `json:"ttlSeconds,omitempty"`
 
 	// Address record fields (A_RECORD, AAAA_RECORD)
 	IPv4Address string `json:"ipv4Address,omitempty"`
