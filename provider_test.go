@@ -68,7 +68,11 @@ func TestGetRecords(t *testing.T) {
 		libdns.Address{
 			Name: "test-b",
 			IP:   netip.MustParseAddr("192.0.2.2"),
-			TTL:  3600 * time.Second,
+			TTL:  0,
+		},
+		libdns.Address{
+			Name: "test-c",
+			IP:   netip.MustParseAddr("192.0.2.3"),
 		},
 	}
 
@@ -100,13 +104,13 @@ func TestGetRecords(t *testing.T) {
 		addr := record.(libdns.Address)
 		found := false
 		for _, gotRecord := range got {
-			if gotAddr, ok := gotRecord.(libdns.Address); ok && gotAddr.Name == addr.Name && gotAddr.IP == addr.IP {
+			if gotAddr, ok := gotRecord.(libdns.Address); ok && gotAddr.Name == addr.Name && gotAddr.IP == addr.IP && gotAddr.TTL == addr.TTL {
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("Expected record %s -> %s not found in GetRecords", addr.Name, addr.IP)
+			t.Errorf("Expected record %s -> %s with TTL %v not found in GetRecords", addr.Name, addr.IP, addr.TTL)
 		}
 	}
 }
