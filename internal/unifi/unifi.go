@@ -213,7 +213,7 @@ type DNSPolicy struct {
 	ID         string `json:"id,omitempty"`
 	Enabled    bool   `json:"enabled"`
 	Domain     string `json:"domain"`
-	TTLSeconds int32  `json:"ttlSeconds,omitempty"`
+	TTLSeconds int32  `json:"ttlSeconds"` // This must not be "omitempty" as 0 maps to "auto" for Unifi.
 
 	// Address record fields (A_RECORD, AAAA_RECORD)
 	IPv4Address string `json:"ipv4Address,omitempty"`
